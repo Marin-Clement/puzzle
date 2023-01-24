@@ -22,7 +22,7 @@ bg_colors = dark_turquoise
 tile_color = white
 text_color = dark_turquoise
 border_color = black
-basic_font_size = int(tile_size/3)
+basic_font_size = int(tile_size / 3)
 message_font_size = 30
 
 # PYGAME INIT FUNCTION
@@ -43,37 +43,82 @@ RIGHT = 'right'
 x_margin = int((window_width - (tile_size * board_width + (board_width - 1))) / 2)
 y_margin = int((window_height - (tile_size * board_height + (board_height - 1))) / 2)
 
+animation_speed = 100
+frame_rate = 144
+animating = False
+win = False
+
 
 def main():
-    global screen
+    global screen, animating, win
 
-    main_board, solution_seq = generate_new_puzzle(1024 * board_size)
+    main_board, solution_seq = generate_new_puzzle(100 * board_size)
     solved_board = create_board()
     all_moves = []
 
     while True:
-        slide_to = None
         msg = 'press arrow keys to slide.'
         if main_board == solved_board:
             msg = 'You solved the puzzle GG!'
-
         draw_board(main_board, msg)
+        slide_to = None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 exit()
             if event.type == KEYUP:
-                if event.key == K_LEFT and is_valid_move(main_board, LEFT):
+                if event.key == K_LEFT and is_valid_move(main_board, LEFT) and not animating:
                     slide_to = LEFT
-                elif event.key == K_RIGHT and is_valid_move(main_board, RIGHT):
+                elif event.key == K_RIGHT and is_valid_move(main_board, RIGHT) and not animating:
                     slide_to = RIGHT
-                elif event.key == K_UP and is_valid_move(main_board, TOP):
+                elif event.key == K_UP and is_valid_move(main_board, TOP) and not animating:
                     slide_to = TOP
-                elif event.key == K_DOWN and is_valid_move(main_board, DOWN):
+                elif event.key == K_DOWN and is_valid_move(main_board, DOWN) and not animating:
                     slide_to = DOWN
-        if slide_to:
-            make_move(main_board, slide_to)
-            all_moves.append(slide_to)
+            if slide_to:
+                animating = True
+                animate_move(main_board, slide_to)
+                all_moves.append(slide_to)
         pygame.display.update()
+
+
+def animate_move(board, move):
+    x_blank, y_blank = get_blank_position(board)
+
+    make_move(board, move)
+    if move == TOP:
+        animate_tile(board, x_blank, y_blank, x_blank, y_blank + 1)
+    elif move == DOWN:
+        animate_tile(board, x_blank, y_blank, x_blank, y_blank - 1)
+    elif move == LEFT:
+        animate_tile(board, x_blank, y_blank, x_blank + 1, y_blank)
+    elif move == RIGHT:
+        animate_tile(board, x_blank, y_blank, x_blank - 1, y_blank)
+
+
+def animate_tile(board, end_x, end_y, start_x, start_y):
+    global animating
+    start_pos = (x_margin + start_x * tile_size + start_x, y_margin + start_y * tile_size + start_y)
+    end_pos = (x_margin + end_x * tile_size + end_x, y_margin + end_y * tile_size + end_y)
+    speed = animation_speed / frame_rate
+    tile_surface = create_tile_surface(board[end_x][end_y])
+    for i in range(frame_rate):
+        x_offset = int((end_pos[0] - start_pos[0]) / frame_rate * i)
+        y_offset = int((end_pos[1] - start_pos[1]) / frame_rate * i)
+        screen.blit(tile_surface, (start_pos[0] + x_offset, start_pos[1] + y_offset))
+        pygame.display.update()
+        pygame.time.wait(int(speed))
+        screen.fill(bg_colors, (start_pos[0], start_pos[1], tile_size, tile_size))
+    animating = False
+
+
+def create_tile_surface(tile_num):
+    tile_surface = pygame.Surface((tile_size, tile_size))
+    tile_surface.fill(tile_color)
+    text = basic_font.render(str(tile_num), True, text_color)
+    text_rect = text.get_rect()
+    text_rect.center = (tile_size / 2, tile_size / 2)
+    tile_surface.blit(text, text_rect)
+    return tile_surface
 
 
 def create_board():
@@ -158,7 +203,7 @@ def draw_tile(tile_x, tile_y, number, adj_x=0, adj_y=0):
 def draw_board(board, message):
     screen.fill(bg_colors)
     if message:
-        text_surf, text_rect = make_text(message, message_color, bg_colors, 5, 5)
+        text_surf, text_rect = make_text(message, message_color, bg_colors, (window_width/2) - (len(message) * 6.5), 35)
         screen.blit(text_surf, text_rect)
 
     for tile_x in range(len(board)):
@@ -169,21 +214,24 @@ def draw_board(board, message):
     left, top = get_left_top_tile(0, 0)
     width = board_width * tile_size
     height = board_height * tile_size
-    pygame.draw.rect(screen, border_color, (left - 5, top - 5, width + (board_width + 15),
-                                            height + (board_height + 15)), 10)
+    pygame.draw.rect(screen, border_color, (left - 15, top - 15, width + (board_width + 30),
+                                            height + (board_height + 30)), 15)
 
 
 def generate_new_puzzle(num_slides):
+    global animation_speed
+    animation_speed = 1
     sequence = []
     board = create_board()
-    draw_board(board, '')
     pygame.display.update()
     last_move = None
     for i in range(num_slides):
         move = get_random_move(board, last_move)
-        make_move(board, move)
+        animate_move(board, move)
+        draw_board(board, "Generating...")
         sequence.append(move)
         last_move = move
+    animation_speed = 100
     return board, sequence
 
 
