@@ -20,21 +20,21 @@ green = (0, 204, 0)
 message_color = white
 bg_colors = dark_turquoise
 tile_color = white
-text_color = dark_turquoise
+text_color = white
 border_color = black
-basic_font_size = int(tile_size / 3)
-message_font_size = 30
+basic_font_size = int(tile_size / 2)
+message_font_size = 50
 
 # PYGAME INIT FUNCTION
 pygame.init()
 pygame.display.set_caption('Puzzle')
-screen = pygame.display.set_mode((window_width, window_height))
+screen = pygame.display.set_mode((window_width, window_height), pygame.HWSURFACE | pygame.DOUBLEBUF)
 screen.fill(bg_colors)
 pygame.display.flip()
 
 # GAME CONSTANTS
-basic_font = pygame.font.Font('freesansbold.ttf', basic_font_size)
-message_font = pygame.font.Font('freesansbold.ttf', message_font_size)
+basic_font = pygame.font.Font('Data/Font/MatchupPro.ttf', basic_font_size)
+message_font = pygame.font.Font('Data/Font/MatchupPro.ttf', message_font_size)
 blank = int()
 TOP = 'up'
 DOWN = 'down'
@@ -44,13 +44,28 @@ x_margin = int((window_width - (tile_size * board_width + (board_width - 1))) / 
 y_margin = int((window_height - (tile_size * board_height + (board_height - 1))) / 2)
 
 animation_speed = 100
-frame_rate = 144
+frame_rate = 30
 animating = False
-win = False
+
+
+class Button:
+    def __init__(self, sprite, size, rect, command):
+        self.rect = pygame.Rect(rect, size)
+        self.image = pygame.image.load(sprite)
+        self.image_size = pygame.transform.scale(self.image, size)
+        self.command = command
+
+    def render(self, screen):
+        screen.blit(self.image_size, self.rect)
+
+    def get_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.rect.collidepoint(pygame.mouse.get_pos()):
+                self.command()
 
 
 def main():
-    global screen, animating, win
+    global screen, animating
 
     main_board, solution_seq = generate_new_puzzle(100 * board_size)
     solved_board = create_board()
@@ -101,19 +116,17 @@ def animate_tile(board, end_x, end_y, start_x, start_y):
     end_pos = (x_margin + end_x * tile_size + end_x, y_margin + end_y * tile_size + end_y)
     speed = animation_speed / frame_rate
     tile_surface = create_tile_surface(board[end_x][end_y])
-    for i in range(frame_rate):
-        x_offset = int((end_pos[0] - start_pos[0]) / frame_rate * i)
-        y_offset = int((end_pos[1] - start_pos[1]) / frame_rate * i)
-        screen.blit(tile_surface, (start_pos[0] + x_offset, start_pos[1] + y_offset))
-        pygame.display.update()
-        pygame.time.wait(int(speed))
-        screen.fill(bg_colors, (start_pos[0], start_pos[1], tile_size, tile_size))
+    x_offset = int((end_pos[0] - start_pos[0]))
+    y_offset = int((end_pos[1] - start_pos[1]))
+    screen.blit(tile_surface, (start_pos[0] + x_offset, start_pos[1] + y_offset))
+    pygame.time.wait(int(speed))
+    pygame.display.update()
     animating = False
 
 
 def create_tile_surface(tile_num):
     tile_surface = pygame.Surface((tile_size, tile_size))
-    tile_surface.fill(tile_color)
+    tile_surface.fill((210, 145, 255))
     text = basic_font.render(str(tile_num), True, text_color)
     text_rect = text.get_rect()
     text_rect.center = (tile_size / 2, tile_size / 2)
@@ -191,19 +204,21 @@ def make_text(text, color, bg_color, top, left):
     return text_surf, text_rect
 
 
-def draw_tile(tile_x, tile_y, number, adj_x=0, adj_y=0):
+def draw_tile(tile_x, tile_y, number, adj_x=0, adj_y=-22):
     left, top = get_left_top_tile(tile_x, tile_y)
-    pygame.draw.rect(screen, tile_color, (left + adj_x, top + adj_y, tile_size, tile_size))
+    image = pygame.image.load("Data/Sprite/tile006.png")
+    image_size = pygame.transform.scale(image, (tile_size, tile_size))
     text_surf = basic_font.render(str(number), True, text_color)
     text_rect = text_surf.get_rect()
     text_rect.center = left + int(tile_size / 2) + adj_x, top + int(tile_size / 2) + adj_y
+    screen.blit(image_size, (left, top, tile_size, tile_size))
     screen.blit(text_surf, text_rect)
 
 
 def draw_board(board, message):
     screen.fill(bg_colors)
     if message:
-        text_surf, text_rect = make_text(message, message_color, bg_colors, (window_width/2) - (len(message) * 6.5), 35)
+        text_surf, text_rect = make_text(message, message_color, bg_colors, (window_width/2) - (len(message) * 6.9), 35)
         screen.blit(text_surf, text_rect)
 
     for tile_x in range(len(board)):
