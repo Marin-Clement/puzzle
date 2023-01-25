@@ -15,13 +15,14 @@ black = (0, 0, 0)
 white = (255, 255, 255)
 dark_turquoise = (80, 54, 73)
 green = (0, 204, 0)
+purple = (132, 94, 194)
 
 # SYSTEM COLOR
 message_color = white
-bg_colors = dark_turquoise
+bg_colors = black
 tile_color = white
 text_color = white
-border_color = black
+border_color = purple
 basic_font_size = int(tile_size / 2)
 message_font_size = 50
 
@@ -42,10 +43,12 @@ LEFT = 'left'
 RIGHT = 'right'
 x_margin = int((window_width - (tile_size * board_width + (board_width - 1))) / 2)
 y_margin = int((window_height - (tile_size * board_height + (board_height - 1))) / 2)
-
+bubble_sprite = pygame.image.load("Data/AnimationBubble/Opening/1.png")
+main_board = []
 animation_speed = 100
 frame_rate = 30
 animating = False
+generating = False
 
 
 class Button:
@@ -64,20 +67,33 @@ class Button:
                 self.command()
 
 
-def main():
-    global screen, animating
+reset_button = Button(f"Data/Sprite/tile009.png", (128, 128), (870, 345), lambda: generate_new_puzzle(10 * board_size))
+quit_button = Button(f"Data/Sprite/tile022.png", (128, 128), (870, 505), lambda: exit())
 
-    main_board, solution_seq = generate_new_puzzle(100 * board_size)
+
+def render(s):
+    reset_button.render(s)
+    quit_button.render(s)
+    if generating:
+        screen.blit(bubble_sprite, (870, 200))
+
+
+def main():
+    global screen, animating, main_board
+    generate_new_puzzle(10 * board_size)
     solved_board = create_board()
     all_moves = []
 
     while True:
-        msg = 'press arrow keys to slide.'
+        msg = 'PRESS ARROW keys to slide.'
         if main_board == solved_board:
             msg = 'You solved the puzzle GG!'
         draw_board(main_board, msg)
         slide_to = None
         for event in pygame.event.get():
+            if event.type == MOUSEBUTTONDOWN:
+                reset_button.get_event(event)
+                quit_button.get_event(event)
             if event.type == pygame.QUIT:
                 exit()
             if event.type == KEYUP:
@@ -90,9 +106,11 @@ def main():
                 elif event.key == K_DOWN and is_valid_move(main_board, DOWN) and not animating:
                     slide_to = DOWN
             if slide_to:
+                render(screen)
                 animating = True
                 animate_move(main_board, slide_to)
                 all_moves.append(slide_to)
+        render(screen)
         pygame.display.update()
 
 
@@ -111,27 +129,30 @@ def animate_move(board, move):
 
 
 def animate_tile(board, end_x, end_y, start_x, start_y):
-    global animating
+    global animating, animation_speed
+    animation_offset = 30
     start_pos = (x_margin + start_x * tile_size + start_x, y_margin + start_y * tile_size + start_y)
     end_pos = (x_margin + end_x * tile_size + end_x, y_margin + end_y * tile_size + end_y)
     speed = animation_speed / frame_rate
-    tile_surface = create_tile_surface(board[end_x][end_y])
-    x_offset = int((end_pos[0] - start_pos[0]))
-    y_offset = int((end_pos[1] - start_pos[1]))
-    screen.blit(tile_surface, (start_pos[0] + x_offset, start_pos[1] + y_offset))
-    pygame.time.wait(int(speed))
-    pygame.display.update()
+    tile_surface = create_tile_surface(board[end_x][end_y], animation_offset)
+    for i in range(frame_rate):
+        x_offset = int((end_pos[0] - start_pos[0]) / frame_rate * i)
+        y_offset = int((end_pos[1] - start_pos[1]) / frame_rate * i)
+        screen.blit(tile_surface, (start_pos[0] + (x_offset + (animation_offset/2)), start_pos[1] + (y_offset + (animation_offset/2))))
+        pygame.display.update()
+        pygame.time.wait(int(speed))
+        screen.fill(bg_colors, (start_pos[0], start_pos[1], tile_size, tile_size))
     animating = False
 
 
-def create_tile_surface(tile_num):
-    tile_surface = pygame.Surface((tile_size, tile_size))
-    tile_surface.fill((210, 145, 255))
-    text = basic_font.render(str(tile_num), True, text_color)
+def create_tile_surface(tile_num, offset):
+    image = pygame.image.load("Data/Sprite/tile006.png")
+    image_size = pygame.transform.scale(image, ((tile_size - offset), (tile_size - offset)))
+    text = basic_font.render(str(tile_num), False, text_color)
     text_rect = text.get_rect()
-    text_rect.center = (tile_size / 2, tile_size / 2)
-    tile_surface.blit(text, text_rect)
-    return tile_surface
+    text_rect.center = ((tile_size - offset) / 2, ((tile_size - offset) / 2) - 22)
+    image_size.blit(text, text_rect)
+    return image_size
 
 
 def create_board():
@@ -218,7 +239,7 @@ def draw_tile(tile_x, tile_y, number, adj_x=0, adj_y=-22):
 def draw_board(board, message):
     screen.fill(bg_colors)
     if message:
-        text_surf, text_rect = make_text(message, message_color, bg_colors, (window_width/2) - (len(message) * 6.9), 35)
+        text_surf, text_rect = make_text(message, message_color, bg_colors, (window_width/2) - (len(message) * 9.5), 35)
         screen.blit(text_surf, text_rect)
 
     for tile_x in range(len(board)):
@@ -230,24 +251,50 @@ def draw_board(board, message):
     width = board_width * tile_size
     height = board_height * tile_size
     pygame.draw.rect(screen, border_color, (left - 15, top - 15, width + (board_width + 30),
-                                            height + (board_height + 30)), 15)
+                                            height + (board_height + 30)), 8)
 
 
 def generate_new_puzzle(num_slides):
-    global animation_speed
+    global animation_speed, main_board, generating
+    v = 0
+    generating = True
+    spawn_bubble()
     animation_speed = 1
-    sequence = []
     board = create_board()
     pygame.display.update()
     last_move = None
     for i in range(num_slides):
+        if v > 2:
+            v = 0
+        v += 1
+        wait_bubble(v)
+        render(screen)
         move = get_random_move(board, last_move)
         animate_move(board, move)
         draw_board(board, "Generating...")
-        sequence.append(move)
         last_move = move
     animation_speed = 100
-    return board, sequence
+    generating = False
+    main_board = board
+
+
+def spawn_bubble():
+    global bubble_sprite
+    for i in range(1, 7):
+        pygame.display.update()
+        bubble_sprite_no = pygame.image.load("Data/AnimationBubble/Opening/" + str(i) + ".png")
+        bubble_sprite_sized = pygame.transform.scale(bubble_sprite_no, (128, 128))
+        bubble_sprite = bubble_sprite_sized
+        render(screen)
+        pygame.time.wait(50)
+
+
+def wait_bubble(v):
+    global bubble_sprite
+    bubble_sprite_no = pygame.image.load("Data/AnimationBubble/Waiting/" + str(v) + ".png")
+    bubble_sprite_sized = pygame.transform.scale(bubble_sprite_no, (128, 128))
+    bubble_sprite = bubble_sprite_sized
+    render(screen)
 
 
 if __name__ == '__main__':
