@@ -30,6 +30,7 @@ message_font_size = 50
 pygame.init()
 pygame.display.set_caption('Puzzle')
 screen = pygame.display.set_mode((window_width, window_height), pygame.HWSURFACE | pygame.DOUBLEBUF)
+clock = pygame.time.Clock()
 screen.fill(bg_colors)
 pygame.display.flip()
 
@@ -46,9 +47,10 @@ y_margin = int((window_height - (tile_size * board_height + (board_height - 1)))
 bubble_sprite = pygame.image.load("Data/AnimationBubble/Opening/1.png")
 main_board = []
 animation_speed = 100
-frame_rate = 30
+frame_rate = 60
 animating = False
 generating = False
+debug = True
 
 
 class Button:
@@ -76,6 +78,10 @@ def render(s):
     quit_button.render(s)
     if generating:
         screen.blit(bubble_sprite, (870, 200))
+    if debug:
+        fps = clock.get_fps()
+        fps_text = message_font.render("FPS: " + str(int(fps)), True, (255, 255, 255))
+        screen.blit(fps_text, (30, 10))
 
 
 def main():
@@ -111,7 +117,9 @@ def main():
                 animate_move(main_board, slide_to)
                 all_moves.append(slide_to)
         render(screen)
+
         pygame.display.update()
+        clock.tick(frame_rate)
 
 
 def animate_move(board, move):
@@ -130,7 +138,7 @@ def animate_move(board, move):
 
 def animate_tile(board, end_x, end_y, start_x, start_y):
     global animating, animation_speed
-    animation_offset = 30
+    animation_offset = 40
     start_pos = (x_margin + start_x * tile_size + start_x, y_margin + start_y * tile_size + start_y)
     end_pos = (x_margin + end_x * tile_size + end_x, y_margin + end_y * tile_size + end_y)
     speed = animation_speed / frame_rate
@@ -225,13 +233,13 @@ def make_text(text, color, bg_color, top, left):
     return text_surf, text_rect
 
 
-def draw_tile(tile_x, tile_y, number, adj_x=0, adj_y=-22):
+def draw_tile(tile_x, tile_y, number, adj_x=0, adj_y=-21):
     left, top = get_left_top_tile(tile_x, tile_y)
     image = pygame.image.load("Data/Sprite/tile006.png")
     image_size = pygame.transform.scale(image, (tile_size, tile_size))
     text_surf = basic_font.render(str(number), True, text_color)
     text_rect = text_surf.get_rect()
-    text_rect.center = left + int(tile_size / 2) + adj_x, top + int(tile_size / 2) + adj_y
+    text_rect.center = left + int(tile_size / 2) + adj_x, top + int(tile_size / 2) + (adj_y + board_size)
     screen.blit(image_size, (left, top, tile_size, tile_size))
     screen.blit(text_surf, text_rect)
 
@@ -259,7 +267,7 @@ def generate_new_puzzle(num_slides):
     v = 0
     generating = True
     spawn_bubble()
-    animation_speed = 1
+    animation_speed = 60
     board = create_board()
     pygame.display.update()
     last_move = None
