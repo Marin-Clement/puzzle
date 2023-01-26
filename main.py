@@ -11,7 +11,7 @@ window_width = 1080
 window_height = 720
 
 # COLORS
-black = (0, 0, 0)
+black = (15, 15, 15)
 white = (255, 255, 255)
 dark_turquoise = (80, 54, 73)
 green = (0, 204, 0)
@@ -25,6 +25,7 @@ text_color = white
 border_color = purple
 basic_font_size = int(tile_size / 2)
 message_font_size = 50
+button_font_size = 60
 
 # PYGAME INIT FUNCTION
 pygame.init()
@@ -35,6 +36,7 @@ screen.fill(bg_colors)
 pygame.display.flip()
 
 # GAME CONSTANTS
+button_font = pygame.font.Font('Data/Font/MatchupPro.ttf', button_font_size)
 basic_font = pygame.font.Font('Data/Font/MatchupPro.ttf', basic_font_size)
 message_font = pygame.font.Font('Data/Font/MatchupPro.ttf', message_font_size)
 blank = int()
@@ -50,7 +52,8 @@ animation_speed = 100
 frame_rate = 60
 animating = False
 generating = False
-debug = True
+reset = False
+debug = False
 
 
 class Button:
@@ -69,11 +72,35 @@ class Button:
                 self.command()
 
 
+sixXsix = Button(f"Data/Sprite/tile006.png", (128, 128), (80, 185), lambda: change_board_size(6))
+sixXsix_text = button_font.render("6x6", True, white)
+fourXfour = Button(f"Data/Sprite/tile006.png", (128, 128), (80, 345), lambda: change_board_size(4))
+fourXfour_text = button_font.render("4x4", True, white)
+threeXthree = Button(f"Data/Sprite/tile006.png", (128, 128), (80, 505), lambda: change_board_size(3))
+threeXthree_text = button_font.render("3x3", True, white)
 reset_button = Button(f"Data/Sprite/tile009.png", (128, 128), (870, 345), lambda: generate_new_puzzle(10 * board_size))
 quit_button = Button(f"Data/Sprite/tile022.png", (128, 128), (870, 505), lambda: exit())
 
 
+def change_board_size(size):
+    global board_size, main_board, board_width, board_height, tile_size, basic_font_size, basic_font, solved_board
+    board_size = size
+    board_width = size
+    board_height = size
+    tile_size = int(100 / + ((board_height + board_width) * 0.1))
+    basic_font_size = int(tile_size / 2)
+    basic_font = pygame.font.Font('Data/Font/MatchupPro.ttf', basic_font_size)
+    generate_new_puzzle(10 * board_size)
+    solved_board = create_board()
+
+
 def render(s):
+    sixXsix.render(s)
+    s.blit(sixXsix_text, (110, 205))
+    fourXfour.render(s)
+    s.blit(fourXfour_text, (110, 365))
+    threeXthree.render(s)
+    s.blit(threeXthree_text, (110, 525))
     reset_button.render(s)
     quit_button.render(s)
     if generating:
@@ -85,7 +112,7 @@ def render(s):
 
 
 def main():
-    global screen, animating, main_board
+    global screen, animating, main_board, reset, solved_board
     generate_new_puzzle(10 * board_size)
     solved_board = create_board()
     all_moves = []
@@ -96,30 +123,36 @@ def main():
             msg = 'You solved the puzzle GG!'
         draw_board(main_board, msg)
         slide_to = None
-        for event in pygame.event.get():
-            if event.type == MOUSEBUTTONDOWN:
-                reset_button.get_event(event)
-                quit_button.get_event(event)
-            if event.type == pygame.QUIT:
-                exit()
-            if event.type == KEYUP:
-                if event.key == K_LEFT and is_valid_move(main_board, LEFT) and not animating:
-                    slide_to = LEFT
-                elif event.key == K_RIGHT and is_valid_move(main_board, RIGHT) and not animating:
-                    slide_to = RIGHT
-                elif event.key == K_UP and is_valid_move(main_board, TOP) and not animating:
-                    slide_to = TOP
-                elif event.key == K_DOWN and is_valid_move(main_board, DOWN) and not animating:
-                    slide_to = DOWN
-            if slide_to:
-                render(screen)
-                animating = True
-                animate_move(main_board, slide_to)
-                all_moves.append(slide_to)
-        render(screen)
-
-        pygame.display.update()
-        clock.tick(frame_rate)
+        if not reset:
+            for event in pygame.event.get():
+                if event.type == MOUSEBUTTONDOWN:
+                    sixXsix.get_event(event)
+                    fourXfour.get_event(event)
+                    threeXthree.get_event(event)
+                    reset_button.get_event(event)
+                    quit_button.get_event(event)
+                if event.type == pygame.QUIT:
+                    exit()
+                if event.type == KEYUP:
+                    if event.key == K_LEFT and is_valid_move(main_board, LEFT) and not animating and not generating:
+                        slide_to = LEFT
+                    elif event.key == K_RIGHT and is_valid_move(main_board, RIGHT) and not animating and not generating:
+                        slide_to = RIGHT
+                    elif event.key == K_UP and is_valid_move(main_board, TOP) and not animating and not generating:
+                        slide_to = TOP
+                    elif event.key == K_DOWN and is_valid_move(main_board, DOWN) and not animating and not generating:
+                        slide_to = DOWN
+                if slide_to:
+                    render(screen)
+                    animating = True
+                    animate_move(main_board, slide_to)
+                    all_moves.append(slide_to)
+            render(screen)
+            pygame.display.update()
+            clock.tick(frame_rate)
+        else:
+            pygame.event.clear()
+            reset = False
 
 
 def animate_move(board, move):
@@ -137,8 +170,8 @@ def animate_move(board, move):
 
 
 def animate_tile(board, end_x, end_y, start_x, start_y):
-    global animating, animation_speed
-    animation_offset = 40
+    global animating, animation_speed, reset
+    animation_offset = 120 / board_size
     start_pos = (x_margin + start_x * tile_size + start_x, y_margin + start_y * tile_size + start_y)
     end_pos = (x_margin + end_x * tile_size + end_x, y_margin + end_y * tile_size + end_y)
     speed = animation_speed / frame_rate
@@ -151,6 +184,7 @@ def animate_tile(board, end_x, end_y, start_x, start_y):
         pygame.time.wait(int(speed))
         screen.fill(bg_colors, (start_pos[0], start_pos[1], tile_size, tile_size))
     animating = False
+    reset = True
 
 
 def create_tile_surface(tile_num, offset):
