@@ -1,8 +1,13 @@
+import json
 import random
 import pygame
 from pygame.locals import *
 
+counter_add = USEREVENT + 1
+
 # CONSTANTS
+current_time = 0
+best_time = 0
 board_size = 3
 board_width = board_size
 board_height = board_size
@@ -103,6 +108,10 @@ def render(s):
     s.blit(threeXthree_text, (110, 525))
     reset_button.render(s)
     quit_button.render(s)
+    time_text = message_font.render("TIME: " + str(convert(current_time)), True, (255, 255, 255))
+    screen.blit(time_text, (30, 10))
+    best_time_text = message_font.render("BEST: " + str(convert(best_time)), True, (255, 255, 255))
+    screen.blit(best_time_text, (30, 50))
     if generating:
         screen.blit(bubble_sprite, (870, 200))
     if debug:
@@ -112,15 +121,20 @@ def render(s):
 
 
 def main():
-    global screen, animating, main_board, reset, solved_board
+    global screen, animating, main_board, reset, solved_board, current_time
+    print_top_scores()
     generate_new_puzzle(10 * board_size)
     solved_board = create_board()
     all_moves = []
+    pygame.time.set_timer(counter_add, 1000)
 
     while True:
         msg = 'PRESS ARROW keys to slide.'
         if main_board == solved_board:
             msg = 'You solved the puzzle GG!'
+            check_new_score(current_time)
+            pygame.time.wait(1000)
+            generate_new_puzzle(10 * board_size)
         draw_board(main_board, msg)
         slide_to = None
         if not reset:
@@ -142,6 +156,8 @@ def main():
                         slide_to = TOP
                     elif event.key == K_DOWN and is_valid_move(main_board, DOWN) and not animating and not generating:
                         slide_to = DOWN
+                if event.type == counter_add:
+                    current_time += 1
                 if slide_to:
                     render(screen)
                     animating = True
@@ -171,6 +187,7 @@ def animate_move(board, move):
 
 def animate_tile(board, end_x, end_y, start_x, start_y):
     global animating, animation_speed, reset
+    pygame.mixer.Sound("Data/Sound/Retro2.mp3").play()
     animation_offset = 120 / board_size
     start_pos = (x_margin + start_x * tile_size + start_x, y_margin + start_y * tile_size + start_y)
     end_pos = (x_margin + end_x * tile_size + end_x, y_margin + end_y * tile_size + end_y)
@@ -185,6 +202,7 @@ def animate_tile(board, end_x, end_y, start_x, start_y):
         screen.fill(bg_colors, (start_pos[0], start_pos[1], tile_size, tile_size))
     animating = False
     reset = True
+    pygame.mixer.Sound("Data/Sound/Retro3.mp3").play()
 
 
 def create_tile_surface(tile_num, offset):
@@ -297,7 +315,7 @@ def draw_board(board, message):
 
 
 def generate_new_puzzle(num_slides):
-    global animation_speed, main_board, generating
+    global animation_speed, main_board, generating, current_time
     v = 0
     generating = True
     spawn_bubble()
@@ -316,6 +334,7 @@ def generate_new_puzzle(num_slides):
         draw_board(board, "Generating...")
         last_move = move
     animation_speed = 100
+    current_time = 0
     generating = False
     main_board = board
 
@@ -337,6 +356,48 @@ def wait_bubble(v):
     bubble_sprite_sized = pygame.transform.scale(bubble_sprite_no, (128, 128))
     bubble_sprite = bubble_sprite_sized
     render(screen)
+
+
+def convert(seconds):
+    seconds = seconds % (24 * 3600)
+    seconds %= 3600
+    minutes = seconds // 60
+    seconds %= 60
+
+    return "%02d:%02d" % (minutes, seconds)
+
+
+def save_score(score):
+    try:
+        with open("Data/Score/scores.json", "r") as f:
+            data = json.load(f)
+    except:
+        data = ""
+    data = score
+    with open("Data/Score/scores.json", "w") as f:
+        json.dump(data, f)
+
+
+def check_new_score(new_score):
+    try:
+        with open("Data/Score/scores.json", "r") as f:
+            data = json.load(f)
+    except:
+        data = {}
+    if data > new_score:
+        save_score(new_score)
+    else:
+        print("no best score")
+
+
+def print_top_scores():
+    global best_time
+    try:
+        with open("Data/Score/scores.json", "r") as f:
+            data = json.load(f)
+    except:
+        data = {}
+    best_time = data
 
 
 if __name__ == '__main__':
